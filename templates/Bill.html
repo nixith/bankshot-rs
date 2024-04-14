@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>CTF: BankShot - Bill</title>
+        <link rel="stylesheet" href="/static/style.css">
+        <style>
+			.spinner {
+				border: 4px solid rgba(0, 0, 0, 0.1);
+				border-radius: 50%;
+				border-top: 4px solid lightgrey;
+				width: 20px;
+				height: 20px;
+				animation: spin 1s linear infinite;
+				margin-right: 8px;
+			}
+				@keyframes spin {
+					0% { transform: rotate(0deg); }
+					100% { transform: rotate(360deg); }
+				}
+		
+        </style>
+    </head>
+    <body>
+        <main>
+                <p>
+                    If you have any questions, please ask your friendly personal chat assistant. A swan is not available to assist you at this time.
+                </p>
+                <form id="promptForm">
+                    <label>Chat input:</label>
+                    <textarea id="userInput"
+                              rows="3"
+                              placeholder="Hi, I'm Bill! Your personal chatbot assistant. Is there anything I can help you with?"></textarea>
+                    <button type="button" onclick="submitPrompt()">Submit</button>
+                    <span id="status" style="margin-left:1em;">Status: Accepting prompt</span>
+                    <div id="spinner" class="spinner" style="display: none;"></div>
+                </form>
+                <h3>Output</h3>
+                <label>Bill:</label>
+                <p class="notice" id="modelOutput"></p>
+    </main>
+        <script>
+			async function submitPrompt() {
+				const userInput = document.getElementById("userInput").value;
+				// Display spinner and update status to "Processing"
+				document.getElementById("spinner").style.display = "inline-block";
+				document.getElementById("status").innerText = "Status: Processing";
+				try {
+					// Submit the raw input to the server with a timeout of 10 seconds
+					const response = await Promise.race([
+						fetch('/bankshot/llm', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify({
+								user_input: userInput,
+							}),
+						}),
+						new Promise(resolve => setTimeout(() => resolve({ timeout: true }), 50000)),
+					]);
+
+					if (response.timeout) {
+						throw new Error('Timeout');
+					}
+
+					const data = await response.json();
+
+					// Update status based on returned status code
+					console.log(data);
+					switch (data.status) {
+						case -1: // Error encountered
+							document.getElementById("status").innerText = "Status: Backend error encountered.";
+							break;
+						case 0: // User input did not match, no flag
+							document.getElementById("status").innerText = ""; // flag is retrieved elsewhere
+							break;
+						case 2: // Backend timeout
+							document.getElementById("status").innerText = "Status: LLM call timed out, try again later.";
+							break;
+						case 3: // Quota reached
+							document.getElementById("status").innerText = "Status: Quota limit reached, try again later.";
+							break;
+						default: // Default
+							document.getElementById("status").innerText = "Status: Unknown error encountered.";
+							break;
+					}
+					// Display the model output
+					document.getElementById("modelOutput").innerText = `${data.output}`;
+				} catch (error) {
+					// Handle timeout or other errors
+					document.getElementById("status").innerText = "Status: error encountered";
+				} finally {
+					// Hide spinner
+					document.getElementById("spinner").style.display = "none";
+				}
+			}
+		
+        </script>
+  </body>
+</html>

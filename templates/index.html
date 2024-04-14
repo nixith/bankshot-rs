@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>CTF: BankShot</title>
+    <link rel="stylesheet" href="/static/style.css">
+        <style>
+			.spinner {
+				border: 4px solid rgba(0, 0, 0, 0.1);
+				border-radius: 50%;
+				border-top: 4px solid lightgrey;
+				width: 20px;
+				height: 20px;
+				animation: spin 1s linear infinite;
+				margin-right: 8px;
+			}
+				@keyframes spin {
+					0% { transform: rotate(0deg); }
+					100% { transform: rotate(360deg); }
+				}
+		
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1 style ="text-align: center;">Swan Valley Bank</h1>
+            <h3 style ="text-align: center;">The Very personal bank of Legally Distinct Stooge McHonk</h3>
+            <div style="margin: auto; width: 50%; text-align: center;">
+                <form id="loginForm">
+                    <input style="text-align: center"
+                           type="text"
+                           id="username"
+                           name="username"
+                           placeholder="Username">
+                    <br>
+                    <br>
+                    <input style="text-align: center"
+                           type="text"
+                           id="password"
+                           name="password"
+                           placeholder="Password">
+                    <br>
+                    <br>
+                    <button type="button"
+                            id="login"
+                            onclick="loginFunc()">Login</button>
+                </form>
+            </div>
+            <div>
+                <details>
+                    <summary>Forgot Password?</summary>
+                    <div style="margin: auto; width: 50%;">
+                        <p>
+                            <b>Forgot your password?</b> that's ok! Answer some security questions and we can log you right in!
+                        </p>
+                        <form id="forgotForm">
+                            <br>
+                            <label>What was your Mother's maiden name?</label>
+                            <input style="text-align: center" type="text" id="mother" name="mother">
+                            <label>What is the middle name of your firstborn?</label>
+                            <input style="text-align: center"
+                                   type="text"
+                                   id="firstborn"
+                                   name="firstborn">
+                            <label>What was the name of your first pet?</label>
+                            <input style="text-align: center" type="text" id="pet" name="pet">
+                            <label>Where was your first place of residence?</label>
+                            <input style="text-align: center"
+                                   type="text"
+                                   id="residence"
+                                   name="residence">
+                            <label>What is your favorite food?</label>
+                            <input style="text-align: center" type="text" id="food" name="food">
+                            <label>What was the name of your High School?</label>
+                            <input style="text-align: center" type="text" id="school" name="school">
+                            <br>
+                            <br>
+                            <button type="button" id="login" onclick="submitQuestions()">Login</button>
+                            <span id="questionOutput" style="margin-left:1em;">Status: Accepting prompt</span>
+                            <span id="questionSpinner" class="spinner" style="display: none;"></span>
+                        </form>
+                    </div>
+                </details>
+            </div>
+        </main>
+    <script>
+async function loginFunc() {
+				try {
+          console.log(JSON.stringify(Object.fromEntries(new FormData(document.getElementById('loginForm')))))
+					// Submit the raw input to the server with a timeout of 10 seconds
+					const response = await Promise.race([
+						fetch('/login', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify(Object.fromEntries(new FormData(document.getElementById('loginForm')))),
+						}),
+						new Promise(resolve => setTimeout(() => resolve({ timeout: true }), 10000)),
+					]);
+
+					const data = response.json()
+					// Update status based on returned status code
+					console.log(response.status);
+					console.log(data);
+					switch (response.status) {
+						case 200: // loggin succeded
+							highlight("login", true);
+              window.location.replace("/bankshot/llm");
+							break;
+						default: // Default
+							highlight("login", false);
+							break;
+					}
+				} catch (error) {
+					// Handle timeout or other errors
+          console.log(error);
+          highlight("login", false);
+				}
+      }
+    </script>
+        <!-- This validates security questions -->
+        <script>
+    async function submitQuestions() {
+				// Display spinner and update status to "Processing"
+				document.getElementById("questionSpinner").style.display = "inline-block";
+				document.getElementById("questionOutput").innerText = "Status: Processing";
+				try {
+					// Submit the raw input to the server with a timeout of 10 seconds
+					const response = await Promise.race([
+						fetch('/bankshot/questions', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify(Object.fromEntries(new FormData(document.getElementById('forgotForm')))),
+						}),
+						new Promise(resolve => setTimeout(() => resolve({ timeout: true }), 10000)),
+					]);
+
+					if (response.timeout) {
+						throw new Error('Timeout');
+					}
+
+					const data = await response.json();
+
+					// Update status based on returned status code
+					console.log(data);
+					switch (data.status) {
+						case -1: // Error encountered
+							document.getElementById("questionOutput").innerText = "Status: Backend error encountered.";
+							break;
+						case 0: // Default case of no divergence, no flag
+							document.getElementById("questionOutput").innerText = "Status: ✘ One or More of your security questions are incorrect";
+							break;
+						case 1: // Divergence, flag provided in response
+							document.getElementById("questionOutput").innerText = `Status: 🏳 ${data.flag}`;
+							break;
+						case 2: // Backend timeout
+							document.getElementById("questionOutput").innerText = "Status: LLM call timed out, try again later.";
+							break;
+						case 3: // Quota reached
+							document.getElementById("questionOutput").innerText = "Status: Quota limit reached, try again later.";
+							break;
+						default: // Default
+							document.getElementById("questionOutput").innerText = "Status: Unknown error encountered.";
+							break;
+					}
+				} catch (error) {
+					// Handle timeout or other errors
+					document.getElementById("questionOutput").innerText = "Status: error encountered";
+				} finally {
+					// Hide spinner
+					document.getElementById("questionSpinner").style.display = "none";
+				}
+			}
+
+      
+        </script>
+        <script>
+function delay(milliseconds){
+    return new Promise(resolve => {
+        setTimeout(resolve, milliseconds);
+    });
+}
+
+// true means correct, false means incorrect
+function highlight(objId, color){
+  var obj = document.getElementById(objId);
+   var tempColor = color ? 
+     getComputedStyle(document.documentElement).getPropertyValue('--correct') :
+     getComputedStyle(document.documentElement).getPropertyValue('--code');
+   var orig = obj.style.color;
+   obj.style.background = tempColor;
+   obj.style.border = tempColor;
+   setTimeout(function(){
+        obj.style.background = orig;
+   }, 500);
+}
+    </script>
+    <script>
+      
+    </script>
+  </body>
+</html>
