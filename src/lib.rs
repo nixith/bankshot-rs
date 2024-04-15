@@ -1,14 +1,17 @@
 use axum::{
     http::StatusCode,
-    response::{IntoResponse, Json, Redirect},
+    response::{Html, IntoResponse, Json, Redirect},
 };
 use rusqlite::{params, Connection, Result, ToSql};
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
+use tokio::{signal, task::AbortHandle};
+use tower_sessions::Session;
 use tracing::info;
 use tracing::{error, warn};
 
 const DB_NAME: &str = "ducks.db";
+const AUTH_KEY: &str = "IsAuthed";
 
 // functions to hold html store index.html at runtime
 pub fn index_html() -> &'static str {
@@ -27,26 +30,51 @@ pub fn auth_html() -> &'static str {
     LLM_HTML.get_or_init(|| std::fs::read_to_string("templates/auth.html").unwrap())
 }
 
-pub async fn authed() -> bool {
-    true // TODO: implement
+// serializable struct for if a user is authed
+#[derive(Default, Deserialize, Serialize)]
+struct AuthSession(bool);
+
+pub async fn is_authed(session: Session) -> bool {
+    // return what is heled by auth key, default to false if anything happens
+    session
+        .get(AUTH_KEY)
+        .await
+        .unwrap_or(Some(false))
+        .unwrap_or(false)
 }
 
-// the input to our `create_user` handler
+pub async fn return_llm_page(session: Session) -> impl IntoResponse {
+    if is_authed(session).await {
+        Html(bill_html())
+    } else {
+        Html(auth_html())
+    }
+}
+
+// the input to our login form handler
 #[derive(Deserialize)]
 pub struct LoginForm {
     username: String,
     password: String,
 }
 
-pub async fn login(Json(payload): Json<LoginForm>) -> (StatusCode, Json<LoginResponse>) {
+pub async fn login(
+    session: Session, // current session
+    Json(payload): Json<LoginForm>,
+) -> (StatusCode, Json<LoginResponse>) {
     //TODO: Store session cookie
     match auth(payload.username, payload.password).await {
-        Ok(true) => (
-            StatusCode::OK,
-            Json(LoginResponse {
-                message: "Logged In".to_string(),
-            }),
-        ),
+        Ok(true) => {
+            // store session cookie
+            session.insert(AUTH_KEY, true).await.unwrap();
+            //respond with json
+            (
+                StatusCode::OK,
+                Json(LoginResponse {
+                    message: "Logged In".to_string(),
+                }),
+            )
+        }
         Ok(false) => (
             StatusCode::FORBIDDEN,
             Json(LoginResponse {
@@ -92,14 +120,14 @@ pub fn setup_db() -> Result<()> {
             password: "password1".to_string(),
         },
         User {
-            id: 0,
-            name: "Swan1".to_string(),
-            password: "password1".to_string(),
+            id: 1,
+            name: "Swan2".to_string(),
+            password: "password2".to_string(),
         },
         User {
-            id: 0,
-            name: "Swan1".to_string(),
-            password: "password1".to_string(),
+            id: 2,
+            name: "Swan3".to_string(),
+            password: "password3".to_string(),
         },
     ];
     for me in users {
@@ -109,7 +137,10 @@ pub fn setup_db() -> Result<()> {
         )?;
     }
     _ = conn.execute("COMMIT", ()).map_err(|err| {
-        warn!("Unable to create BankShot DB on Initialization");
+        warn!(
+            "Unable to create BankShot DB on Initialization. Reason: {}",
+            err
+        );
         err
     });
     info!("Database created sucessfully!");
@@ -135,5 +166,35 @@ pub async fn auth(username: String, password: String) -> Result<bool, String> {
         Ok(Some(_)) => Ok(true),
         Ok(None) => Ok(false),
         Err(s) => Err(s.to_string()),
+    }
+}
+
+pub async fn shutdown_signal(deletion_task_abort_handle: AbortHandle) {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {
+            info!("Shutting down Session Store");
+            deletion_task_abort_handle.abort()
+        },
+        _ = terminate => {
+
+            info!("Shutting down Session Store");
+            deletion_task_abort_handle.abort() },
     }
 }
