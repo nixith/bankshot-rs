@@ -40,6 +40,8 @@
             "rustfmt"
           ])
           rust-analyzer
+          docker-compose
+          sqlitebrowser
         ];
       };
     });

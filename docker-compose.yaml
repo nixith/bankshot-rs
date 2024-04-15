@@ -1,0 +1,45 @@
+services:
+  # bankshot-rs
+  bankshot:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - langserve
+    ports:
+      - "3000:3000"
+    networks:
+      - CTF
+  # langserve
+  langserve:
+    restart: unless-stopped
+    build:
+      context: ./langserve
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    networks:
+      - CTF
+    depends_on:
+      - ollama
+  ollama:
+    volumes:
+      - ./.ollama/ollama:/root/.ollama
+    container_name: ollama
+    tty: true
+    restart: unless-stopped
+    image: ollama/ollama:latest
+    ports:
+      - 11434:11434
+    networks:
+      - CTF
+      # deploy:
+      #   resources:
+      #     reservations:
+      #       devices:
+      #         - driver: nvidia
+      #           count: 1
+      #           capabilities: [gpu]
+networks:
+  CTF:
