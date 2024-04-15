@@ -136,13 +136,6 @@ pub fn setup_db() -> Result<()> {
             (&me.id, &me.name, &me.password),
         )?;
     }
-    _ = conn.execute("COMMIT", ()).map_err(|err| {
-        warn!(
-            "Unable to create BankShot DB on Initialization. Reason: {}",
-            err
-        );
-        err
-    });
     info!("Database created sucessfully!");
     Ok(())
 }
