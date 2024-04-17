@@ -8,7 +8,10 @@ For context: this is an LLM based challenge which is intended to be accessed onl
 ### Setup
 1. Run `./getLLm.sh`. This will download the AI model to your machine locally in this git repo. This uses podman, but it shouldn't be hard to adapt to docker if that's your preference. You only have to run this once!
 ### Run the Challenge
-2. Run your favorite docker compose program, i.e. `podman compose up` or `docker compose up`
-3. checkout the challenge in your browser at `localhost:3000`
+1. Run your favorite docker compose program, i.e. `podman compose up` or `docker compose up`
+2. checkout the challenge in your browser at `localhost:3000`
+
+### Cleanup
+When you're done, just remove this directory and clean up the docker containers, no state should be touched beyond that.
 
 
