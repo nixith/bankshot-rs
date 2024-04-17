@@ -1,4 +1,3 @@
-use askama_axum::Result;
 use axum::{
     response::{Html, Redirect},
     routing::{get, post},

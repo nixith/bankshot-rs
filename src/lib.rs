@@ -1,14 +1,15 @@
 use axum::{
     http::StatusCode,
-    response::{Html, IntoResponse, Json, Redirect},
+    response::{Html, IntoResponse, Json},
 };
-use rusqlite::{params, Connection, Result, ToSql};
-use serde::{Deserialize, Serialize};
+
+use reqwest::Client;
+use rusqlite::{Connection, Result};
 use std::sync::OnceLock;
 use tokio::{signal, task::AbortHandle};
 use tower_sessions::Session;
+use tracing::error;
 use tracing::info;
-use tracing::{error, warn};
 
 const DB_NAME: &str = "ducks.db";
 const AUTH_KEY: &str = "IsAuthed";
