@@ -20,6 +20,9 @@ llm_route:str = (os.getenv('LLM_ROUTE') or 'llm')
 llm_model:str = (os.getenv('LLM_MODEL') or 'mistral:instruct')
 
 
+ollama_host:str = (os.getenv('OLLAMA_HOSTNAME') or '0.0.0.0')
+ollama_port:str = (os.getenv('OLLAMA_PORT') or '11434')
+
 
 
 app = FastAPI(
