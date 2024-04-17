@@ -71,18 +71,13 @@
 					// Update status based on returned status code
 					console.log(data);
 					switch (data.status) {
-						case -1: // Error encountered
+						case -422: // Error encountered
 							document.getElementById("status").innerText = "Status: Backend error encountered.";
 							break;
-						case 0: // User input did not match, no flag
+						case 200: // User input did not match, no flag
 							document.getElementById("status").innerText = ""; // flag is retrieved elsewhere
-							break;
-						case 2: // Backend timeout
-							document.getElementById("status").innerText = "Status: LLM call timed out, try again later.";
-							break;
-						case 3: // Quota reached
-							document.getElementById("status").innerText = "Status: Quota limit reached, try again later.";
-							break;
+						case 400: // User input did not match, no flag
+							document.getElementById("status").innerText = "unauthorized"; // user is not authorized
 						default: // Default
 							document.getElementById("status").innerText = "Status: Unknown error encountered.";
 							break;

@@ -149,9 +149,6 @@ async function loginFunc() {
 					// Update status based on returned status code
 					console.log(data);
 					switch (data.status) {
-						case -1: // Error encountered
-							document.getElementById("questionOutput").innerText = "Status: Backend error encountered.";
-							break;
 						case 0: // Default case of no divergence, no flag
 							document.getElementById("questionOutput").innerText = "Status: ✘ One or More of your security questions are incorrect";
 							break;
