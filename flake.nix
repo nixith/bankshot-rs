@@ -42,6 +42,9 @@
           rust-analyzer
           docker-compose
           sqlitebrowser
+          sqlite
+          openssl
+          pkg-config
         ];
       };
     });
