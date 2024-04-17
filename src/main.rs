@@ -57,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // build our application with a route
     let app = Router::new()
         // GET routes - serve html
-        .route("/", get(|| async { Redirect::permanent("/bankshot") }))
+        .route("/", get(|| async { Redirect::to("/bankshot") }))
         .route("/bankshot", get(|| async { Html(index_html()) }))
         .route("/bankshot/llm", get(return_llm_page))
         // POST routes - respond with json
