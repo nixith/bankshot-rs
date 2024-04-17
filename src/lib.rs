@@ -11,8 +11,25 @@ use tower_sessions::Session;
 use tracing::error;
 use tracing::info;
 
+const BAD_LLM_RESPONSE: &str = "Sorry, I can only answer questions for Stooge McHonk";
 const DB_NAME: &str = "ducks.db";
 const AUTH_KEY: &str = "IsAuthed";
+
+
+pub fn llm_host() -> &'static str {
+    static HOST: OnceLock<String> = OnceLock::new();
+    HOST.get_or_init(|| std::env::var("LLM_HOST").unwrap_or("localhost".to_string()))
+}
+
+pub fn llm_port() -> &'static str {
+    static PORT: OnceLock<String> = OnceLock::new();
+    PORT.get_or_init(|| std::env::var("LLM_PORT").unwrap_or("localhost".to_string()))
+}
+
+pub fn llm_route() -> &'static str {
+    static ROUTE: OnceLock<String> = OnceLock::new();
+    ROUTE.get_or_init(|| std::env::var("LLM_ROUTE").unwrap_or("localhost".to_string()))
+}
 
 // functions to hold html store index.html at runtime
 pub fn index_html() -> &'static str {
@@ -29,6 +46,11 @@ pub fn bill_html() -> &'static str {
 pub fn auth_html() -> &'static str {
     static LLM_HTML: OnceLock<String> = OnceLock::new();
     LLM_HTML.get_or_init(|| std::fs::read_to_string("templates/auth.html").unwrap())
+}
+
+pub fn request_client() -> &'static Client {
+    static LLM_HTML: OnceLock<Client> = OnceLock::new();
+    LLM_HTML.get_or_init(|| reqwest::Client::new())
 }
 
 // serializable struct for if a user is authed
@@ -160,6 +182,81 @@ pub async fn auth(username: String, password: String) -> Result<bool, String> {
         Ok(Some(_)) => Ok(true),
         Ok(None) => Ok(false),
         Err(s) => Err(s.to_string()),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct LlmResponse {
+    output: String,
+    metadata: serde_json::Value, // strictly speaking, we don't care about metadata
+}
+
+#[derive(Serialize)]
+pub struct BillResponse {
+    status: String,
+    output: String,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct BillRequest {
+    user_input: String,
+}
+
+#[derive(Serialize)]
+pub struct LangChainRequest {
+    user_input: String,
+}
+
+pub async fn llm_client(session: Session, Json(payload): Json<BillRequest>) -> impl IntoResponse {
+    if !is_authed(session).await {
+        // user shouldn't be hitting bill without authorization - early json return
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(BillResponse {
+                status: 401.to_string(),
+                output: "not authorized".to_string(),
+            }),
+        );
+    };
+    let json_data = format!(
+        "{{\"input\": {{\"user_input\": \"{}\" }} }}",
+        payload.user_input,
+    );
+    let client = request_client();
+    let request = client
+        .post(format!(
+            "http://{host}:{port}/{route}/invoke",
+            host = llm_host(),
+            port = llm_port(),
+            route = llm_route()
+        ))
+        .header("Content-Type", "application/json")
+        .body(json_data.to_owned());
+    println!("json data:\n{}\n", json_data);
+    let res = request.send().await.unwrap();
+    println!("request response:\n{:?}\n", res);
+    let data = res.json::<LlmResponse>().await.unwrap();
+    // we don't have michael's prompt injection sitting in front as of now, but that's ok - we use
+    // good faith
+    info!("LLM responded");
+    if data.output.to_lowercase().contains(BAD_LLM_RESPONSE) {
+        // llm says it doesn't think the user
+        // is Stooge McHonk
+        (
+            StatusCode::OK,
+            Json(BillResponse {
+                status: 200.to_string(),
+                output: BAD_LLM_RESPONSE.to_string(),
+            }),
+        )
+    } else {
+        (
+            StatusCode::OK,
+            Json(BillResponse {
+                status: 200.to_string(),
+                output: data.output,
+            }),
+        )
     }
 }
 
