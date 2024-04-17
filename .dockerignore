@@ -1,0 +1,8 @@
+.envrc
+.direnv/
+.ollama/
+target/
+result/
+flake.nix
+flake.lock
+*.db
