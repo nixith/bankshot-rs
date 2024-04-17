@@ -28,7 +28,7 @@
       # For `nix build` & `nix run`:
       packages.default = craneLib.buildPackage {
         src = craneLib.cleanCargoSource (craneLib.path ./.);
-        nativeBuildInputs = [pkgs.pkg-config pkgs.sqlite];
+        nativeBuildInputs = [pkgs.pkg-config pkgs.sqlite pkgs.openssl];
       };
       devShells.default = pkgs.mkShell {
         packages = with pkgs; [

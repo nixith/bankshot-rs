@@ -1,4 +1,4 @@
-FROM rust:1.70 as build
+FROM rust:1.70-bookworm as build
 
 # create a new empty shell project
 RUN USER=root cargo new --bin ctf
@@ -20,13 +20,13 @@ RUN rm ./target/release/deps/ctf*
 RUN cargo build --release
 
 # our final base
-FROM debian:sid-slim
+FROM debian:bookworm-slim
 
 # create working directory
 WORKDIR /ctf
 
 # install dependencies needed for app
-RUN apt-get update && apt-get install -y sqlite3 && rm -rf /var/lib/apt/lists/* 
+RUN apt-get update && apt-get install -y sqlite3 openssl && rm -rf /var/lib/apt/lists/* 
 
 # copy the build artifact from the build stage
 COPY --from=build /ctf/target/release/ctf .
