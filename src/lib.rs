@@ -15,6 +15,17 @@ const BAD_LLM_RESPONSE: &str = "Sorry, I can only answer questions for Stooge Mc
 const DB_NAME: &str = "ducks.db";
 const AUTH_KEY: &str = "IsAuthed";
 
+pub fn correct_answers() -> &'static Questions {
+    static CORRECT_ANSWERS: OnceLock<Questions> = OnceLock::new();
+    CORRECT_ANSWERS.get_or_init(|| Questions {
+        mother: "Puddles".to_string(),
+        firstborn: "Gosling".to_string(),
+        pet: "benjamin".to_string(),
+        food: "Clover".to_string(),
+        residence: "4053 Woking Way, Los Angeles, CA".to_string(),
+        school: "All-Goose School of Academic Eggcellence".to_string(),
+    })
+}
 
 pub fn llm_host() -> &'static str {
     static HOST: OnceLock<String> = OnceLock::new();
@@ -29,6 +40,11 @@ pub fn llm_port() -> &'static str {
 pub fn llm_route() -> &'static str {
     static ROUTE: OnceLock<String> = OnceLock::new();
     ROUTE.get_or_init(|| std::env::var("LLM_ROUTE").unwrap_or("localhost".to_string()))
+}
+
+pub fn flag() -> &'static str {
+    static FLAG: OnceLock<String> = OnceLock::new();
+    FLAG.get_or_init(|| std::env::var("FLAG").unwrap_or("flag{abc}".to_string()))
 }
 
 // functions to hold html store index.html at runtime
@@ -105,6 +121,43 @@ pub async fn login(
             }),
         ),
         Err(s) => (StatusCode::BAD_REQUEST, Json(LoginResponse { message: s })),
+    }
+}
+
+// Security Questions
+#[derive(Deserialize, Eq, PartialEq)]
+pub struct Questions {
+    mother: String,
+    firstborn: String,
+    pet: String,
+    food: String,
+    residence: String,
+    school: String,
+}
+
+#[derive(Serialize)]
+pub struct QuestionResponse {
+    status: u16,
+    flag: String,
+}
+
+pub async fn check_questions(Json(payload): Json<Questions>) -> impl IntoResponse {
+    if payload.eq(correct_answers()) {
+        (
+            StatusCode::OK,
+            Json(QuestionResponse {
+                status: 1,
+                flag: flag().to_string(),
+            }),
+        )
+    } else {
+        (
+            StatusCode::OK,
+            Json(QuestionResponse {
+                status: 0,
+                flag: "One or more of your Answers does not match".to_string(),
+            }),
+        )
     }
 }
 
