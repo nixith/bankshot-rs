@@ -2,9 +2,9 @@ use axum::{
     http::StatusCode,
     response::{Html, IntoResponse, Json},
 };
-
 use reqwest::Client;
 use rusqlite::{Connection, Result};
+use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 use tokio::{signal, task::AbortHandle};
 use tower_sessions::Session;
