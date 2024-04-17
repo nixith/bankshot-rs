@@ -61,6 +61,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/bankshot/llm", get(return_llm_page))
         // POST routes - respond with json
         .route("/login", post(login))
+        .route("/bankshot/llm", post(llm_client))
+        .route("/bankshot/questions", post(check_questions))
         // extra Tower services - things like serving directories
         .nest_service(
             "/static",
